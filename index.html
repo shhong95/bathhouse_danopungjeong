@@ -50,6 +50,10 @@ header p{font-size:12px;color:#aaa}
 }
 
 .pie-wrap canvas{height:auto!important;max-height:250px}
+
+.filters{flex-wrap:wrap;gap:8px}
+.filters>div{min-width:100px}
+.filters select{min-width:110px}
 </style>
 </head>
 <body>
@@ -62,7 +66,9 @@ header p{font-size:12px;color:#aaa}
 <div class="filters">
     <div><label>매장</label><select id="fS" onchange="go()"><option value="all">전체</option><option value="종로점">종로점</option><option value="성북점">성북점</option></select></div>
     <div><label>고객</label><select id="fC" onchange="go()"><option value="all">전체</option><option value="foreign">외국인</option><option value="domestic">내국인</option></select></div>
-    <div><label>기간</label><select id="fP" onchange="go()"><option value="all">전체</option><option value="3">최근 3개월</option><option value="6">최근 6개월</option><option value="12">최근 12개월</option></select></div>
+    <div><label>기간</label><select id="fP" onchange="presetChanged()"><option value="all">전체</option><option value="1">최근 1개월</option><option value="3">최근 3개월</option><option value="6">최근 6개월</option><option value="12">최근 12개월</option></select></div>
+    <div><label>시작월</label><select id="fMS" onchange="monthChanged()"><option value="">-</option><option value="2024-08">2024년 8월</option><option value="2024-09">2024년 9월</option><option value="2024-10">2024년 10월</option><option value="2024-11">2024년 11월</option><option value="2024-12">2024년 12월</option><option value="2025-01">2025년 1월</option><option value="2025-02">2025년 2월</option><option value="2025-03">2025년 3월</option><option value="2025-04">2025년 4월</option><option value="2025-05">2025년 5월</option><option value="2025-06">2025년 6월</option><option value="2025-07">2025년 7월</option><option value="2025-08">2025년 8월</option><option value="2025-09">2025년 9월</option><option value="2025-10">2025년 10월</option><option value="2025-11">2025년 11월</option><option value="2025-12">2025년 12월</option><option value="2026-01">2026년 1월</option><option value="2026-02">2026년 2월</option></select></div>
+    <div><label>종료월</label><select id="fME" onchange="monthChanged()"><option value="">-</option><option value="2024-08">2024년 8월</option><option value="2024-09">2024년 9월</option><option value="2024-10">2024년 10월</option><option value="2024-11">2024년 11월</option><option value="2024-12">2024년 12월</option><option value="2025-01">2025년 1월</option><option value="2025-02">2025년 2월</option><option value="2025-03">2025년 3월</option><option value="2025-04">2025년 4월</option><option value="2025-05">2025년 5월</option><option value="2025-06">2025년 6월</option><option value="2025-07">2025년 7월</option><option value="2025-08">2025년 8월</option><option value="2025-09">2025년 9월</option><option value="2025-10">2025년 10월</option><option value="2025-11">2025년 11월</option><option value="2025-12">2025년 12월</option><option value="2026-01">2026년 1월</option><option value="2026-02">2026년 2월</option></select></div>
 </div>
 
 <div class="tabs" id="tabs">
@@ -150,10 +156,26 @@ function fN(v){return v.toLocaleString();}
 function fP(v){return v.toFixed(1)+'%';}
 
 function getF(){
+    var ms=document.getElementById('fMS').value;
+    var me=document.getElementById('fME').value;
+    return{s:document.getElementById('fS').value,c:document.getElementById('fC').value,ms:ms||null,me:me||null};
+}
+function presetChanged(){
     var p=document.getElementById('fP').value;
-    var mm=null;
-    if(p!=='all'){var d=new Date();d.setMonth(d.getMonth()-parseInt(p));mm=d.toISOString().slice(0,7);}
-    return{s:document.getElementById('fS').value,c:document.getElementById('fC').value,mm:mm};
+    var selS=document.getElementById('fMS');
+    var selE=document.getElementById('fME');
+    if(p==='all'){selS.value='';selE.value='';}
+    else{
+        var d=new Date();var em=d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1);
+        d.setMonth(d.getMonth()-parseInt(p));
+        var sm=d.getFullYear()+'-'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1);
+        selS.value=sm;selE.value=em;
+    }
+    go();
+}
+function monthChanged(){
+    document.getElementById('fP').value='all';
+    go();
 }
 
 function fi(arr,f,mk){
@@ -163,7 +185,8 @@ function fi(arr,f,mk){
         var r=arr[i];
         if(f.s!=='all'&&r.s!==f.s)continue;
         if(f.c!=='all'&&r.ct!==f.c)continue;
-        if(f.mm&&r[mk]&&r[mk]<f.mm)continue;
+        if(f.ms&&r[mk]&&r[mk]<f.ms)continue;
+        if(f.me&&r[mk]&&r[mk]>f.me)continue;
         out.push(r);
     }
     return out;
@@ -174,7 +197,8 @@ function fiNC(arr,f,mk){
     for(var i=0;i<arr.length;i++){
         var r=arr[i];
         if(f.s!=='all'&&r.s!==f.s)continue;
-        if(f.mm&&r[mk]&&r[mk]<f.mm)continue;
+        if(f.ms&&r[mk]&&r[mk]<f.ms)continue;
+        if(f.me&&r[mk]&&r[mk]>f.me)continue;
         out.push(r);
     }
     return out;
@@ -208,7 +232,7 @@ function renderKPIs(f){
     var rows=fi(R.mo,f);
     var tr=0,tn=0;for(var i=0;i<rows.length;i++){tr+=rows[i].r;tn+=rows[i].n;}
     var avg=tn?Math.round(tr/tn):0;
-    var nc={s:f.s,c:'all',mm:f.mm};
+    var nc={s:f.s,c:'all',ms:f.ms,me:f.me};
     var all=fiNC(R.mo,f);
     var fr=0,fn=0,dr=0,dn=0;
     for(var i=0;i<all.length;i++){
@@ -265,7 +289,7 @@ function renderForeign(f){
     var filtered=[];
     for(var i=0;i<mr.length;i++){
         if(f.s!=='all'&&mr[i].s!==f.s)continue;
-        if(f.mm&&mr[i].m<f.mm)continue;
+        if(f.ms&&mr[i].m<f.ms)continue;if(f.me&&mr[i].m>f.me)continue;
         filtered.push(mr[i]);
     }
     // aggregate by month
